@@ -758,6 +758,67 @@ function loadFromStorage() {
 }
 
 // ---------------------------------------------------------------------------
+// Export / Import (JSON file)
+// ---------------------------------------------------------------------------
+
+function exportAll() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw || Object.keys(tcams).length === 0) {
+        alert('Nothing to export — create a TCAM first.');
+        return;
+    }
+    const blob = new Blob([raw], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tcamv2-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const data = JSON.parse(reader.result);
+            if (typeof data !== 'object' || data === null) throw new Error('Invalid format');
+            // Validate and load each TCAM
+            let count = 0;
+            for (const [id, d] of Object.entries(data)) {
+                if (!d.width || !d.depth || !d.entries) continue;
+                const t = new TCAM(d.width, d.depth);
+                for (let i = 0; i < d.entries.length; i++) {
+                    const se = d.entries[i];
+                    const entry = t.getEntry(i);
+                    entry.value = se.value.map(v => BigInt(v));
+                    entry.mask = se.mask.map(v => BigInt(v));
+                    entry.action = se.action;
+                    entry.valid = se.valid;
+                }
+                tcams[id] = {
+                    tcam: t,
+                    name: d.name,
+                    id: d.id || id,
+                    implicitDenyIndex: d.implicitDenyIndex,
+                    history: d.history || [],
+                    progHistory: d.progHistory || [],
+                };
+                count++;
+            }
+            saveToStorage();
+            loadList();
+            alert(`Imported ${count} TCAM(s) successfully.`);
+        } catch (e) {
+            alert(`Import failed: ${e.message}`);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 loadFromStorage();

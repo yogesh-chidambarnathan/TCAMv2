@@ -14,6 +14,9 @@
     <div class="toolbar">
         <h1>TCAM ACL Simulator</h1>
         <button class="primary" onclick="showCreateModal()">Create TCAM</button>
+        <button onclick="exportAll()">Export</button>
+        <button onclick="$('import-file').click()">Import</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importFile(event)">
     </div>
     <table id="tcam-table">
         <thead>
