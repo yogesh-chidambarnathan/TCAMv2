@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCAM ACL Simulator</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ LIST VIEW ============ -->
+<div id="list-view">
+    <div class="toolbar">
+        <h1>TCAM ACL Simulator</h1>
+        <button class="primary" onclick="showCreateModal()">Create TCAM</button>
+    </div>
+    <table id="tcam-table">
+        <thead>
+            <tr><th>Name</th><th>Width</th><th>Depth</th><th>Used</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- ============ DETAIL VIEW ============ -->
+<div id="detail-view" class="hidden">
+    <div class="toolbar">
+        <button onclick="showList()">&larr; Back</button>
+        <h1 id="detail-title"></h1>
+        <span id="detail-meta" class="mono" style="font-size:0.8rem;color:#666;margin-left:auto"></span>
+    </div>
+
+    <!-- Entries table -->
+    <div class="card">
+        <h2>Entries</h2>
+        <table id="entries-table">
+            <thead>
+                <tr><th>#</th><th>Valid</th><th>SIP</th><th>SIP Mask</th><th>DIP</th><th>DIP Mask</th><th>Action</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Program ACE -->
+    <div class="card">
+        <h2 id="prog-form-title">Program ACE</h2>
+        <div id="program-error" class="error-msg hidden"></div>
+        <div id="program-notice" class="notice-box hidden"></div>
+        <div class="form-row">
+            <label>Index</label><input id="prog-index" type="number" min="0" style="width:4rem">
+            <label>SIP</label><input id="prog-sip" placeholder="10.0.0.0" style="width:9rem">
+            <label>SIP Mask</label><input id="prog-sip-mask" placeholder="255.0.0.0" style="width:9rem">
+        </div>
+        <div class="form-row">
+            <label>DIP</label><input id="prog-dip" placeholder="0.0.0.0" style="width:9rem">
+            <label>DIP Mask</label><input id="prog-dip-mask" placeholder="0.0.0.0" style="width:9rem">
+            <label>Action</label>
+            <label><input type="radio" name="prog-action" value="permit" checked> Permit</label>
+            <label><input type="radio" name="prog-action" value="deny"> Deny</label>
+            <button id="prog-submit" class="primary" onclick="submitEntry()">Program</button>
+        </div>
+    </div>
+
+    <!-- Send Packet -->
+    <div class="card">
+        <h2>Send Packet</h2>
+        <div id="lookup-error" class="error-msg hidden"></div>
+        <div class="form-row">
+            <label>SIP</label><input id="lkp-sip" placeholder="10.1.2.3" style="width:9rem">
+            <label>DIP</label><input id="lkp-dip" placeholder="192.168.1.1" style="width:9rem">
+            <button class="primary" onclick="doLookup()">Lookup</button>
+        </div>
+        <div id="lookup-result" class="hidden"></div>
+    </div>
+
+    <!-- Packet Lookup History -->
+    <div class="card">
+        <div class="toolbar" style="margin-bottom:0.5rem">
+            <h2>Packet Lookup History</h2>
+            <button class="danger" onclick="clearHistory()" style="margin-left:auto">Clear</button>
+        </div>
+        <table id="history-table">
+            <thead>
+                <tr><th>Time</th><th>SIP</th><th>DIP</th><th>Result</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Programming History -->
+    <div class="card">
+        <div class="toolbar" style="margin-bottom:0.5rem">
+            <h2>Programming History</h2>
+            <button class="danger" onclick="clearProgHistory()" style="margin-left:auto">Clear</button>
+        </div>
+        <table id="prog-history-table">
+            <thead>
+                <tr><th>Time</th><th>Operation</th><th>Summary</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ============ CREATE MODAL ============ -->
+<div id="create-modal" class="modal-overlay hidden">
+    <div class="modal">
+        <h2>Create TCAM</h2>
+        <div id="create-error" class="error-msg hidden"></div>
+        <div class="form-row"><label>Name</label><input id="create-name" value="my-tcam"></div>
+        <div class="form-row"><label>Width</label><input id="create-width" type="number" value="64" min="64" step="8"></div>
+        <div class="form-row"><label>Depth</label><input id="create-depth" type="number" value="16" min="2"></div>
+        <div class="actions">
+            <button onclick="hideCreateModal()">Cancel</button>
+            <button class="primary" onclick="createTcam()">Create</button>
+        </div>
+    </div>
+</div>
+
+<script src="tcam.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
