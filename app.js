@@ -764,7 +764,7 @@ function loadFromStorage() {
 function exportAll() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw || Object.keys(tcams).length === 0) {
-        alert('Nothing to export — create a TCAM first.');
+        alert('Create atleast one TCAM to export.');
         return;
     }
     const blob = new Blob([raw], { type: 'application/json' });
