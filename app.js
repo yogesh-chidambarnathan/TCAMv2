@@ -25,7 +25,15 @@ function showNotice(id, msg) {
 }
 function hideNotice(id) { $(id).classList.add('hidden'); }
 
-function formatTime(iso) { return new Date(iso).toLocaleTimeString(); }
+function formatTime(iso) {
+    const d = new Date(iso);
+    return d.getUTCFullYear() + '-' +
+        String(d.getUTCMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getUTCDate()).padStart(2, '0') + ' ' +
+        String(d.getUTCHours()).padStart(2, '0') + ':' +
+        String(d.getUTCMinutes()).padStart(2, '0') + ':' +
+        String(d.getUTCSeconds()).padStart(2, '0');
+}
 
 function esc(s) {
     const d = document.createElement('div');
