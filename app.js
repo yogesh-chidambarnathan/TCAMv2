@@ -779,7 +779,8 @@ function exportAll() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tcamv2-export-${new Date().toISOString().slice(0, 10)}.json`;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.download = `TCAMState-${ts}.json`;
     a.click();
     URL.revokeObjectURL(url);
 }
