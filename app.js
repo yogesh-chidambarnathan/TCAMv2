@@ -165,6 +165,7 @@ function createTcam() {
             progHistory: [],
         };
         hideCreateModal();
+        saveToStorage();
         loadList();
     } catch (e) {
         showError('create-error', e.message);
@@ -178,6 +179,7 @@ function createTcam() {
 function deleteTcam(id, name) {
     if (!confirm(`Delete TCAM "${name}"? This cannot be undone.`)) return;
     delete tcams[id];
+    saveToStorage();
     loadList();
 }
 
@@ -350,6 +352,11 @@ function summarizeProgEvent(h) {
             return `Index ${d.index}: edited`;
         case 'invalidate':
             return `Index ${d.index}: invalidated`;
+        case 'batch': {
+            let s = `${d.programmed} programmed`;
+            if (d.errors) s += `, ${d.errors} failed`;
+            return s;
+        }
         case 'rename':
             return `"${esc(d.old_name)}" \u2192 "${esc(d.new_name)}"`;
         default:
@@ -360,6 +367,7 @@ function summarizeProgEvent(h) {
 function clearProgHistory() {
     const entry = tcams[currentTcamId];
     if (entry) entry.progHistory = [];
+    saveToStorage();
     refreshDetail();
 }
 
@@ -465,6 +473,7 @@ function submitEntry() {
         $('prog-index').disabled = false;
         $('prog-submit').textContent = 'Program';
         $('prog-form-title').textContent = 'Program ACE';
+        saveToStorage();
         refreshDetail();
     } catch (e) {
         showError('program-error', e.message);
@@ -485,6 +494,7 @@ function invalidateEntry(index) {
             operation: 'invalidate',
             details: { index },
         });
+        saveToStorage();
         refreshDetail();
     } catch (e) {
         showError('program-error', e.message);
@@ -524,6 +534,7 @@ function doLookup() {
             timestamp: ts,
         };
         entry.history.unshift(record);
+        saveToStorage();
 
         const box = $('lookup-result');
         box.classList.remove('hidden', 'hit', 'miss');
@@ -550,6 +561,7 @@ function doLookup() {
 function clearHistory() {
     const entry = tcams[currentTcamId];
     if (entry) entry.history = [];
+    saveToStorage();
     refreshDetail();
 }
 
@@ -578,6 +590,7 @@ function makeEditable(el, tcamId, onDone) {
                     operation: 'rename',
                     details: { old_name: oldName, new_name: val },
                 });
+                saveToStorage();
             }
             el.textContent = val;
             if (onDone) onDone();
@@ -599,6 +612,153 @@ function makeEditable(el, tcamId, onDone) {
 }
 
 // ---------------------------------------------------------------------------
+// Batch Import
+// ---------------------------------------------------------------------------
+
+function batchImport() {
+    hideError('batch-error');
+    hideNotice('batch-notice');
+
+    const entry = tcams[currentTcamId];
+    if (!entry) return;
+
+    const text = $('batch-input').value.trim();
+    if (!text) { showError('batch-error', 'Paste at least one line'); return; }
+
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    const parsed = [];
+    for (let i = 0; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(s => s.trim());
+        if (parts.length !== 6) {
+            showError('batch-error', `Line ${i + 1}: expected 6 fields, got ${parts.length}`);
+            return;
+        }
+        const [idxStr, sip, sipMask, dip, dipMask, action] = parts;
+        const idx = parseInt(idxStr, 10);
+        if (isNaN(idx)) {
+            showError('batch-error', `Line ${i + 1}: invalid index "${idxStr}"`);
+            return;
+        }
+        if (idx === entry.implicitDenyIndex) {
+            showError('batch-error', `Line ${i + 1}: cannot program implicit deny index ${idx}`);
+            return;
+        }
+        const act = action.toLowerCase();
+        if (act !== 'permit' && act !== 'deny') {
+            showError('batch-error', `Line ${i + 1}: action must be "permit" or "deny"`);
+            return;
+        }
+        try {
+            ipToInt(sip); ipToInt(sipMask); ipToInt(dip); ipToInt(dipMask);
+        } catch (e) {
+            showError('batch-error', `Line ${i + 1}: ${e.message}`);
+            return;
+        }
+        parsed.push({ index: idx, sip, sipMask, dip, dipMask, action: act });
+    }
+
+    const indices = parsed.map(p => p.index);
+    if (new Set(indices).size !== indices.length) {
+        showError('batch-error', 'Batch contains duplicate indices');
+        return;
+    }
+
+    let programmed = 0;
+    const errors = [];
+    for (const r of parsed) {
+        try {
+            const value = TCAM.packSipDip(ipToInt(r.sip), ipToInt(r.dip));
+            const mask = TCAM.packSipDip(ipToInt(r.sipMask), ipToInt(r.dipMask));
+            entry.tcam.program(r.index, value, mask, r.action);
+            programmed++;
+        } catch (e) {
+            errors.push(`Index ${r.index}: ${e.message}`);
+        }
+    }
+
+    entry.progHistory.unshift({
+        timestamp: nowISO(),
+        operation: 'batch',
+        details: { programmed, errors: errors.length },
+    });
+
+    if (errors.length) {
+        showError('batch-error', `${errors.length} failed: ${errors[0]}${errors.length > 1 ? ` (+${errors.length - 1} more)` : ''}`);
+    }
+    if (programmed > 0) {
+        showNotice('batch-notice', `${programmed} entries programmed successfully`);
+        $('batch-input').value = '';
+    }
+    saveToStorage();
+    refreshDetail();
+}
+
+// ---------------------------------------------------------------------------
+// Persistence (localStorage)
+// ---------------------------------------------------------------------------
+
+const STORAGE_KEY = 'tcamv2_state';
+
+function saveToStorage() {
+    const data = {};
+    for (const [id, entry] of Object.entries(tcams)) {
+        const t = entry.tcam;
+        const entries = [];
+        for (let i = 0; i < t.depth; i++) {
+            const e = t.getEntry(i);
+            entries.push({
+                value: e.value.map(v => v.toString()),
+                mask: e.mask.map(v => v.toString()),
+                action: e.action,
+                valid: e.valid,
+            });
+        }
+        data[id] = {
+            name: entry.name,
+            id: entry.id,
+            width: t.width,
+            depth: t.depth,
+            implicitDenyIndex: entry.implicitDenyIndex,
+            entries,
+            history: entry.history,
+            progHistory: entry.progHistory,
+        };
+    }
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (_) {}
+}
+
+function loadFromStorage() {
+    let raw;
+    try { raw = localStorage.getItem(STORAGE_KEY); } catch (_) { return; }
+    if (!raw) return;
+    let data;
+    try { data = JSON.parse(raw); } catch (_) { return; }
+
+    for (const [id, d] of Object.entries(data)) {
+        const t = new TCAM(d.width, d.depth);
+        for (let i = 0; i < d.entries.length; i++) {
+            const se = d.entries[i];
+            const entry = t.getEntry(i);
+            entry.value = se.value.map(v => BigInt(v));
+            entry.mask = se.mask.map(v => BigInt(v));
+            entry.action = se.action;
+            entry.valid = se.valid;
+        }
+        tcams[id] = {
+            tcam: t,
+            name: d.name,
+            id: d.id,
+            implicitDenyIndex: d.implicitDenyIndex,
+            history: d.history || [],
+            progHistory: d.progHistory || [],
+        };
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
+loadFromStorage();
 loadList();

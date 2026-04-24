@@ -92,6 +92,22 @@
         </table>
     </div>
 
+    <!-- Batch Import -->
+    <div class="card">
+        <h2>Batch Import</h2>
+        <div id="batch-error" class="error-msg hidden"></div>
+        <div id="batch-notice" class="notice-box hidden"></div>
+        <p style="font-size:0.8rem;color:var(--ink-soft);margin-bottom:0.5rem">
+            One entry per line: <code>index, sip, sip_mask, dip, dip_mask, action</code>
+        </p>
+        <textarea id="batch-input" rows="6" placeholder="0, 10.0.0.0, 255.0.0.0, 0.0.0.0, 0.0.0.0, permit
+1, 192.168.1.0, 255.255.255.0, 0.0.0.0, 0.0.0.0, deny
+2, 172.16.0.0, 255.240.0.0, 10.0.0.0, 255.0.0.0, permit"></textarea>
+        <div style="margin-top:0.5rem">
+            <button class="primary" onclick="batchImport()">Import</button>
+        </div>
+    </div>
+
     <!-- Programming History -->
     <div class="card">
         <div class="toolbar" style="margin-bottom:0.5rem">
